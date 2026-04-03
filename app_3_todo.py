@@ -18,7 +18,7 @@ from collections import Counter
 import streamlit as st
 
 # TODO 1: Import word_tokenize và sentiment từ thư viện underthesea
-# from underthesea import ...
+from underthesea import word_tokenize, sentiment
 
 
 # ========= CẤU HÌNH TỪ VỰNG MẪU =========
@@ -77,8 +77,8 @@ def underthesea_tokenize(text: str):
       - tokens_text: chuỗi token (dạng format="text")
     """
     # ---- VIẾT CODE TẠI ĐÂY ----
-    tokens_list = []       # thay bằng word_tokenize(text)
-    tokens_text = ""       # thay bằng word_tokenize(text, format="text")
+    tokens_list = word_tokenize(text)
+    tokens_text = word_tokenize(text, format="text")
     # ----------------------------
     return tokens_list, tokens_text
 
@@ -96,7 +96,13 @@ def safe_sentiment(text: str) -> str:
     Yêu cầu: Trả về string nhãn sentiment, ví dụ: 'positive', 'negative'.
     """
     # ---- VIẾT CODE TẠI ĐÂY ----
-    return "chưa hoàn thành TODO 3"
+    try:
+        result = sentiment(text)
+        if isinstance(result, (list, tuple)):
+            return str(result[0]).lower()
+        return str(result).lower()
+    except Exception:
+        return "neutral"
     # ----------------------------
 
 
@@ -201,131 +207,41 @@ with col_right:
         st.markdown("**Cách 2 — underthesea `word_tokenize`:**")
 
         # TODO 4a: Gọi underthesea_tokenize(text) và hiển thị kết quả.
-        #
-        # Gợi ý:
-        #   tokens_list, tokens_text = underthesea_tokenize(text)
-        #   st.code(" | ".join(tokens_list))
-        #   st.write("Dạng text:", tokens_text)
-        #
-        # ---- VIẾT CODE TẠI ĐÂY ----
-        st.warning("⚠️ Chưa hoàn thành TODO 4a — Hiển thị kết quả underthesea tokenize")
-        tokens_ut = tokens_simple  # tạm dùng simple, thay bằng tokens_list từ underthesea
-        # ----------------------------
+        tokens_list, tokens_text = underthesea_tokenize(text)
+        st.code(" | ".join(tokens_list))
+        st.caption(f"Dạng text: `{tokens_text}`")
 
         # ============================================================
-        # PHẦN B — Tiền tố Hán-Việt (dùng token từ underthesea)
+        # PHẦN B — Sentiment Analysis
         # ============================================================
-        st.markdown("### 2️⃣ Yếu tố Hán‑Việt dạng 'tiền tố nghĩa'")
-        prefix_counts = detect_prefixes(tokens_ut, PREFIX_MEANINGS)
-        if prefix_counts:
-            for pref, c in prefix_counts.items():
-                meaning = PREFIX_MEANINGS.get(pref, "")
-                st.write(f"- `{pref}`: **{c}** lần – nghĩa: *{meaning}*")
-        else:
-            st.write("_Chưa thấy tiền tố mẫu. Thử thêm từ như `bất_cẩn`, `phi_lý`, `siêu_rẻ`._")
+        st.markdown("### 2️⃣ Sentiment Analysis — So sánh 2 cách")
 
-        # ============================================================
-        # PHẦN C — Sentiment: so sánh rule-based vs underthesea
-        # ============================================================
-        st.markdown("### 3️⃣ Sentiment — So sánh 2 cách")
+        # --- Cách 1: Rule-based (giữ nguyên) ---
+        pos_count = sum(detect_phrases(norm_text, POSITIVE_PHRASES).values())
+        neg_count = sum(detect_phrases(norm_text, NEGATIVE_PHRASES).values())
+        rule_sentiment = overall_sentiment(pos_count, neg_count)
 
-        # --- Cách 1: Rule-based (đã có sẵn) — từng bước ---
-        st.markdown("#### 🔧 Cách 1 — Rule-based (từng bước)")
-
-        pos_counts = detect_phrases(norm_text, POSITIVE_PHRASES)
-        neg_counts = detect_phrases(norm_text, NEGATIVE_PHRASES)
-        pos_total = sum(pos_counts.values())
-        neg_total = sum(neg_counts.values())
-        total_phrases = pos_total + neg_total
-
-        # Bước 1: Liệt kê cụm
-        st.markdown("##### Bước 1 — Phát hiện cụm cảm xúc")
-        col_pos, col_neg = st.columns(2)
-        with col_pos:
-            st.markdown("🟢 **Cụm tích cực**")
-            if pos_counts:
-                for p, c in pos_counts.items():
-                    st.write(f"- `{p}` × {c}")
-            else:
-                st.write("_Không tìm thấy_")
-        with col_neg:
-            st.markdown("🔴 **Cụm tiêu cực**")
-            if neg_counts:
-                for p, c in neg_counts.items():
-                    st.write(f"- `{p}` × {c}")
-            else:
-                st.write("_Không tìm thấy_")
-
-        # Bước 2: Thống kê
-        st.markdown("##### Bước 2 — Thống kê số lượng")
-        stat_col1, stat_col2, stat_col3 = st.columns(3)
-        stat_col1.metric("Σ Tích cực (P)", pos_total)
-        stat_col2.metric("Σ Tiêu cực (N)", neg_total)
-        stat_col3.metric("Tổng cụm", total_phrases)
-
-        # Bước 3: Tính score
-        st.markdown("##### Bước 3 — Tính Sentiment Score")
-        if total_phrases > 0:
-            score = (pos_total - neg_total) / total_phrases
-            st.latex(
-                r"\text{Score} = \frac{P - N}{P + N} = "
-                rf"\frac{{{pos_total} - {neg_total}}}{{{pos_total} + {neg_total}}} = "
-                rf"{score:+.2f}"
-            )
-            st.caption("Score ∈ [−1, +1]. Gần +1 → tích cực, gần −1 → tiêu cực.")
-        else:
-            score = 0.0
-            st.latex(r"\text{Score} = 0 \quad (\text{không phát hiện cụm nào})")
-
-        # Bước 4: Quy tắc
-        st.markdown("##### Bước 4 — Quy tắc phân loại")
-        st.markdown(
-            r"""
-| Điều kiện | Nhãn |
-|---|---|
-| $P = 0$ và $N = 0$ | KHÔNG RÕ / TRUNG TÍNH |
-| $P > N$ (Score > 0) | TÍCH CỰC |
-| $N > P$ (Score < 0) | TIÊU CỰC |
-| $P = N$ (Score = 0) | TRUNG TÍNH / LẪN LỘN |
-"""
-        )
-
-        # Bước 5: Kết luận rule-based
-        label = overall_sentiment(pos_total, neg_total)
-        st.markdown("##### Bước 5 — Kết luận Rule-based")
-        if "TÍCH CỰC" in label:
-            st.success(f"➡️ P ({pos_total}) > N ({neg_total})  →  **{label}**  (Score = {score:+.2f})")
-        elif "TIÊU CỰC" in label:
-            st.error(f"➡️ N ({neg_total}) > P ({pos_total})  →  **{label}**  (Score = {score:+.2f})")
-        else:
-            st.warning(f"➡️ P ({pos_total}) = N ({neg_total})  →  **{label}**  (Score = {score:+.2f})")
+        st.markdown("**Cách 1 — Rule-based (từ vựng):**")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Positive phrases", pos_count)
+        col2.metric("Negative phrases", neg_count)
+        col3.metric("Kết luận", rule_sentiment)
 
         # --- Cách 2: underthesea sentiment ---
-        st.markdown("---")
-        st.markdown("#### 🤖 Cách 2 — underthesea `sentiment()`")
+        st.markdown("**Cách 2 — underthesea `sentiment`:**")
+        underthesea_label = safe_sentiment(text)
 
-        # TODO 4b: Gọi safe_sentiment(text) và hiển thị kết quả.
-        #
-        # Gợi ý:
-        #   senti_label = safe_sentiment(text)
-        #   st.info(f"**Nhãn underthesea:** `{senti_label}`")
-        #
-        # ---- VIẾT CODE TẠI ĐÂY ----
-        st.warning("⚠️ Chưa hoàn thành TODO 4b — Hiển thị kết quả underthesea sentiment")
-        # ----------------------------
+        st.metric("Kết quả underthesea", underthesea_label.upper())
 
-        # --- So sánh 2 cách ---
-        st.markdown("---")
-        st.markdown("#### 🔍 So sánh 2 phương pháp")
-        st.markdown(
-            """
-| Tiêu chí | Rule-based | underthesea |
-|---|---|---|
-| Cách hoạt động | Đếm cụm từ trong danh sách cố định | Model NLP đã huấn luyện |
-| Ưu điểm | Đơn giản, dễ hiểu, minh bạch | Chính xác hơn, xử lý ngữ cảnh |
-| Nhược điểm | Bỏ sót nhiều, phụ thuộc danh sách | Cần cài model, khó giải thích |
-"""
-        )
+        # So sánh
+        st.markdown("**So sánh hai phương pháp:**")
+        st.info(f"Rule-based: **{rule_sentiment}**  •  underthesea: **{underthesea_label.upper()}**")
 
-    else:
-        st.info("Nhập văn bản và bấm **Phân tích** để bắt đầu demo.")
+        # Bonus: Prefix detection
+        st.markdown("### 3️⃣ Phát hiện tiền tố (Morphology)")
+        prefixes = detect_prefixes(tokens_list, PREFIX_MEANINGS)
+        if prefixes:
+            for pref, cnt in prefixes.items():
+                st.write(f"• **{pref}** ({PREFIX_MEANINGS[pref]}): xuất hiện **{cnt}** lần")
+        else:
+            st.write("Không phát hiện tiền tố đặc biệt.")
