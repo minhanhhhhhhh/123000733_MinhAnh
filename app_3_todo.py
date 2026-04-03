@@ -1,10 +1,6 @@
 """
 BÀI TẬP: Morphology & Sentiment tiếng Việt với underthesea
 ===========================================================
-Sinh viên cần hoàn thành các phần đánh dấu TODO bên dưới.
-
-Cài đặt: pip install underthesea streamlit
-Chạy:    streamlit run app_3_todo.py
 """
 
 import re
@@ -134,7 +130,14 @@ st.title("🧬 BÀI TẬP — Morphology & Sentiment tiếng Việt")
 
 st.markdown(
     """
-**Sinh viên cần hoàn thành các TODO trong file này.**
+**Sinh viên cần hoàn thành 4 TODO trong file này:**
+
+| TODO | Nội dung |
+|------|----------|
+| TODO 1 | Import `word_tokenize`, `sentiment` từ `underthesea` |
+| TODO 2 | Viết hàm `underthesea_tokenize()` dùng `word_tokenize` |
+| TODO 3 | Viết hàm `safe_sentiment()` dùng `sentiment` |
+| TODO 4 | Hiển thị kết quả underthesea tokenize & sentiment trên giao diện |
 """
 )
 
@@ -155,56 +158,132 @@ with col_left:
         placeholder="Ví dụ: Máy chạy nhanh, chơi game mượt, màn hình đẹp nhưng pin tụt kinh khủng...",
     )
 
-    analyze_btn = st.button("Phân tích Morphology & Sentiment", type="primary")
+    analyze_btn = st.button("Phân tích Morphology & Sentiment")
 
 with col_right:
     st.subheader("Kết quả phân tích")
 
     if not text.strip():
-        st.info("Hãy nhập văn bản và bấm **Phân tích Morphology & Sentiment**.")
+        st.info("Hãy nhập một đoạn văn rồi bấm **Phân tích**.")
     elif analyze_btn:
         norm_text = normalize_text(text)
 
-        # ====================== PHƯƠNG PHÁP 1: RULE-BASED ======================
-        st.markdown("### 🔸 Phương pháp 1: Rule-based (Tự xây dựng)")
+        # ============================================================
+        # PHẦN A — Tokenization: so sánh split() vs underthesea
+        # ============================================================
+        st.markdown("### 1️⃣ Tokenization — So sánh 2 cách")
 
+        # --- Cách 1: split đơn giản ---
         tokens_simple = simple_tokenize(norm_text)
-        pos_count = sum(detect_phrases(norm_text, POSITIVE_PHRASES).values())
-        neg_count = sum(detect_phrases(norm_text, NEGATIVE_PHRASES).values())
-        rule_label = overall_sentiment(pos_count, neg_count)
-
-        st.markdown("**Tokenization (split đơn giản):**")
+        st.markdown("**Cách 1 — split() đơn giản:**")
         st.code(" | ".join(tokens_simple))
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Cụm từ tích cực", pos_count)
-        col2.metric("Cụm từ tiêu cực", neg_count)
-        col3.metric("Kết luận Sentiment", rule_label)
-
-        # ====================== PHƯƠNG PHÁP 2: UNDERTHESEA ======================
-        st.markdown("### 🔹 Phương pháp 2: Underthesea (Thư viện chuyên dụng)")
-
+        # --- Cách 2: underthesea ---
+        st.markdown("**Cách 2 — underthesea `word_tokenize`:**")
         tokens_list, tokens_text = underthesea_tokenize(text)
-        underthesea_label = safe_sentiment(text)
-
-        st.markdown("**Tokenization (underthesea word_tokenize):**")
         st.code(" | ".join(tokens_list))
         st.caption(f"Dạng text: `{tokens_text}`")
 
-        st.metric("Kết quả Sentiment từ underthesea", underthesea_label.upper())
+        # ============================================================
+        # PHẦN B — Tiền tố
+        # ============================================================
+        st.markdown("### 2️⃣ Yếu tố Hán‑Việt dạng 'tiền tố nghĩa'")
+        prefix_counts = detect_prefixes(tokens_list, PREFIX_MEANINGS)
+        if prefix_counts:
+            for pref, c in prefix_counts.items():
+                meaning = PREFIX_MEANINGS.get(pref, "")
+                st.write(f"- `{pref}`: **{c}** lần – nghĩa: *{meaning}*")
+        else:
+            st.write("_Chưa thấy tiền tố mẫu._")
+
+        # ============================================================
+        # PHẦN C — Sentiment: So sánh 2 phương pháp (theo kiểu ảnh)
+        # ============================================================
+        st.markdown("### 3️⃣ Sentiment — So sánh 2 phương pháp")
+
+        # ====================== PHƯƠNG PHÁP 1: RULE-BASED ======================
+        st.markdown("#### 🔸 **Phương pháp 1: Rule-based (Tự xây dựng)**")
+
+        # Giữ nguyên toàn bộ 5 bước chi tiết của Rule-based như code gốc
+        pos_counts = detect_phrases(norm_text, POSITIVE_PHRASES)
+        neg_counts = detect_phrases(norm_text, NEGATIVE_PHRASES)
+        pos_total = sum(pos_counts.values())
+        neg_total = sum(neg_counts.values())
+        total_phrases = pos_total + neg_total
+
+        # Bước 1
+        st.markdown("##### Bước 1 — Phát hiện cụm cảm xúc")
+        col_pos, col_neg = st.columns(2)
+        with col_pos:
+            st.markdown("🟢 **Cụm tích cực**")
+            if pos_counts:
+                for p, c in pos_counts.items():
+                    st.write(f"- `{p}` × {c}")
+            else:
+                st.write("_Không tìm thấy_")
+        with col_neg:
+            st.markdown("🔴 **Cụm tiêu cực**")
+            if neg_counts:
+                for p, c in neg_counts.items():
+                    st.write(f"- `{p}` × {c}")
+            else:
+                st.write("_Không tìm thấy_")
+
+        # Bước 2, 3, 4, 5 giữ nguyên
+        st.markdown("##### Bước 2 — Thống kê số lượng")
+        stat_col1, stat_col2, stat_col3 = st.columns(3)
+        stat_col1.metric("Σ Tích cực (P)", pos_total)
+        stat_col2.metric("Σ Tiêu cực (N)", neg_total)
+        stat_col3.metric("Tổng cụm", total_phrases)
+
+        st.markdown("##### Bước 3 — Tính Sentiment Score")
+        if total_phrases > 0:
+            score = (pos_total - neg_total) / total_phrases
+            st.latex(
+                r"\text{Score} = \frac{P - N}{P + N} = "
+                rf"\frac{{{pos_total} - {neg_total}}}{{{pos_total} + {neg_total}}} = "
+                rf"{score:+.2f}"
+            )
+        else:
+            score = 0.0
+            st.latex(r"\text{Score} = 0")
+
+        st.markdown("##### Bước 4 — Quy tắc phân loại")
+        st.markdown(r"""
+| Điều kiện | Nhãn |
+|---|---|
+| $P = 0$ và $N = 0$ | KHÔNG RÕ / TRUNG TÍNH |
+| $P > N$ | TÍCH CỰC |
+| $N > P$ | TIÊU CỰC |
+| $P = N$ | TRUNG TÍNH / LẪN LỘN |
+""")
+
+        label = overall_sentiment(pos_total, neg_total)
+        st.markdown("##### Bước 5 — Kết luận Rule-based")
+        if "TÍCH CỰC" in label:
+            st.success(f"**{label}** (P: {pos_total} - N: {neg_total})")
+        elif "TIÊU CỰC" in label:
+            st.error(f"**{label}** (P: {pos_total} - N: {neg_total})")
+        else:
+            st.warning(f"**{label}** (P: {pos_total} - N: {neg_total})")
+
+        # ====================== PHƯƠNG PHÁP 2: UNDERTHESEA ======================
+        st.markdown("---")
+        st.markdown("#### 🔹 **Phương pháp 2: Underthesea (Thư viện chuyên dụng)**")
+
+        # Tokenization của underthesea (đã hiển thị ở trên, nhưng có thể nhắc lại nếu cần)
+        st.markdown("**Tokenization (underthesea word_tokenize):**")
+        st.code(" | ".join(tokens_list))
+
+        # Sentiment của underthesea
+        senti_label = safe_sentiment(text)
+        st.markdown("**Kết quả Sentiment từ underthesea**")
+        st.metric("Nhãn cảm xúc", senti_label.upper())
 
         # ====================== SO SÁNH ======================
-        st.markdown("### 📊 So sánh hai phương pháp")
-        st.info(f"""
-        **Rule-based**: {rule_label}  
-        **Underthesea**: **{underthesea_label.upper()}**
-        """)
+        st.markdown("---")
+        st.markdown("#### 📊 So sánh hai phương pháp")
+        st.info(f"**Rule-based**: {label}  |  **Underthesea**: **{senti_label.upper()}**")
 
-        # Tiền tố đặc biệt (giữ nguyên)
-        st.markdown("### 3️⃣ Phát hiện tiền tố đặc biệt (Morphology)")
-        prefixes = detect_prefixes(tokens_list, PREFIX_MEANINGS)
-        if prefixes:
-            for pref, cnt in prefixes.items():
-                st.write(f"• **{pref}** ({PREFIX_MEANINGS[pref]}): xuất hiện **{cnt}** lần")
-        else:
-            st.write("Không phát hiện tiền tố đặc biệt nào.")
+    else:
+        st.info("Nhập văn bản và bấm **Phân tích** để xem kết quả.")
