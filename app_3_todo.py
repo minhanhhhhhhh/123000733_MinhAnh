@@ -3,11 +3,6 @@ BÀI TẬP: Morphology & Sentiment tiếng Việt với underthesea
 ===========================================================
 Sinh viên cần hoàn thành các phần đánh dấu TODO bên dưới.
 
-Yêu cầu:
-  1) Dùng underthesea.word_tokenize thay cho simple_tokenize (split đơn giản).
-  2) Dùng underthesea.sentiment thay cho rule-based sentiment.
-  3) So sánh kết quả giữa 2 cách (rule-based vs underthesea).
-
 Cài đặt: pip install underthesea streamlit
 Chạy:    streamlit run app_3_todo.py
 """
@@ -67,14 +62,6 @@ def simple_tokenize(text: str):
 def underthesea_tokenize(text: str):
     """
     TODO 2: Dùng word_tokenize từ underthesea để tách từ tiếng Việt.
-
-    Gợi ý:
-      - word_tokenize(text) trả về list các token, ví dụ: ['màn_hình', 'đẹp', 'quá']
-      - word_tokenize(text, format="text") trả về chuỗi: 'màn_hình đẹp quá'
-
-    Yêu cầu: Trả về tuple (tokens_list, tokens_text)
-      - tokens_list: list token (dạng list)
-      - tokens_text: chuỗi token (dạng format="text")
     """
     # ---- VIẾT CODE TẠI ĐÂY ----
     tokens_list = word_tokenize(text)
@@ -86,14 +73,6 @@ def underthesea_tokenize(text: str):
 def safe_sentiment(text: str) -> str:
     """
     TODO 3: Gọi underthesea.sentiment(text) để lấy nhãn cảm xúc.
-
-    Gợi ý:
-      - sentiment(text) có thể trả về 'positive', 'negative', 'neutral'
-        hoặc list/tuple tuỳ phiên bản.
-      - Cần xử lý trường hợp trả về list/tuple: lấy phần tử đầu tiên.
-      - Bọc trong try/except để tránh crash nếu chưa cài model.
-
-    Yêu cầu: Trả về string nhãn sentiment, ví dụ: 'positive', 'negative'.
     """
     # ---- VIẾT CODE TẠI ĐÂY ----
     try:
@@ -155,14 +134,7 @@ st.title("🧬 BÀI TẬP — Morphology & Sentiment tiếng Việt")
 
 st.markdown(
     """
-**Sinh viên cần hoàn thành 4 TODO trong file này:**
-
-| TODO | Nội dung |
-|------|----------|
-| TODO 1 | Import `word_tokenize`, `sentiment` từ `underthesea` |
-| TODO 2 | Viết hàm `underthesea_tokenize()` dùng `word_tokenize` |
-| TODO 3 | Viết hàm `safe_sentiment()` dùng `sentiment` |
-| TODO 4 | Hiển thị kết quả underthesea tokenize & sentiment trên giao diện |
+**Sinh viên cần hoàn thành các TODO trong file này.**
 """
 )
 
@@ -183,65 +155,56 @@ with col_left:
         placeholder="Ví dụ: Máy chạy nhanh, chơi game mượt, màn hình đẹp nhưng pin tụt kinh khủng...",
     )
 
-    analyze_btn = st.button("Phân tích Morphology & Sentiment")
+    analyze_btn = st.button("Phân tích Morphology & Sentiment", type="primary")
 
 with col_right:
-    st.subheader("Kết quả")
+    st.subheader("Kết quả phân tích")
 
     if not text.strip():
-        st.info("Hãy nhập một đoạn văn rồi bấm **Phân tích**.")
+        st.info("Hãy nhập văn bản và bấm **Phân tích Morphology & Sentiment**.")
     elif analyze_btn:
         norm_text = normalize_text(text)
 
-        # ============================================================
-        # PHẦN A — Tokenization: so sánh split() vs underthesea
-        # ============================================================
-        st.markdown("### 1️⃣ Tokenization — So sánh 2 cách")
+        # ====================== PHƯƠNG PHÁP 1: RULE-BASED ======================
+        st.markdown("### 🔸 Phương pháp 1: Rule-based (Tự xây dựng)")
 
-        # --- Cách 1: split đơn giản (đã có sẵn) ---
         tokens_simple = simple_tokenize(norm_text)
-        st.markdown("**Cách 1 — split() đơn giản:**")
+        pos_count = sum(detect_phrases(norm_text, POSITIVE_PHRASES).values())
+        neg_count = sum(detect_phrases(norm_text, NEGATIVE_PHRASES).values())
+        rule_label = overall_sentiment(pos_count, neg_count)
+
+        st.markdown("**Tokenization (split đơn giản):**")
         st.code(" | ".join(tokens_simple))
 
-        # --- Cách 2: underthesea word_tokenize ---
-        st.markdown("**Cách 2 — underthesea `word_tokenize`:**")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Cụm từ tích cực", pos_count)
+        col2.metric("Cụm từ tiêu cực", neg_count)
+        col3.metric("Kết luận Sentiment", rule_label)
 
-        # TODO 4a: Gọi underthesea_tokenize(text) và hiển thị kết quả.
+        # ====================== PHƯƠNG PHÁP 2: UNDERTHESEA ======================
+        st.markdown("### 🔹 Phương pháp 2: Underthesea (Thư viện chuyên dụng)")
+
         tokens_list, tokens_text = underthesea_tokenize(text)
+        underthesea_label = safe_sentiment(text)
+
+        st.markdown("**Tokenization (underthesea word_tokenize):**")
         st.code(" | ".join(tokens_list))
         st.caption(f"Dạng text: `{tokens_text}`")
 
-        # ============================================================
-        # PHẦN B — Sentiment Analysis
-        # ============================================================
-        st.markdown("### 2️⃣ Sentiment Analysis — So sánh 2 cách")
+        st.metric("Kết quả Sentiment từ underthesea", underthesea_label.upper())
 
-        # --- Cách 1: Rule-based (giữ nguyên) ---
-        pos_count = sum(detect_phrases(norm_text, POSITIVE_PHRASES).values())
-        neg_count = sum(detect_phrases(norm_text, NEGATIVE_PHRASES).values())
-        rule_sentiment = overall_sentiment(pos_count, neg_count)
+        # ====================== SO SÁNH ======================
+        st.markdown("### 📊 So sánh hai phương pháp")
+        st.info(f"""
+        **Rule-based**: {rule_label}  
+        **Underthesea**: **{underthesea_label.upper()}**
+        """)
 
-        st.markdown("**Cách 1 — Rule-based (từ vựng):**")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Positive phrases", pos_count)
-        col2.metric("Negative phrases", neg_count)
-        col3.metric("Kết luận", rule_sentiment)
-
-        # --- Cách 2: underthesea sentiment ---
-        st.markdown("**Cách 2 — underthesea `sentiment`:**")
-        underthesea_label = safe_sentiment(text)
-
-        st.metric("Kết quả underthesea", underthesea_label.upper())
-
-        # So sánh
-        st.markdown("**So sánh hai phương pháp:**")
-        st.info(f"Rule-based: **{rule_sentiment}**  •  underthesea: **{underthesea_label.upper()}**")
-
-        # Bonus: Prefix detection
-        st.markdown("### 3️⃣ Phát hiện tiền tố (Morphology)")
+        # Tiền tố đặc biệt (giữ nguyên)
+        st.markdown("### 3️⃣ Phát hiện tiền tố đặc biệt (Morphology)")
         prefixes = detect_prefixes(tokens_list, PREFIX_MEANINGS)
         if prefixes:
             for pref, cnt in prefixes.items():
                 st.write(f"• **{pref}** ({PREFIX_MEANINGS[pref]}): xuất hiện **{cnt}** lần")
         else:
-            st.write("Không phát hiện tiền tố đặc biệt.")
+            st.write("Không phát hiện tiền tố đặc biệt nào.")
